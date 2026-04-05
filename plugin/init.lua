@@ -9,7 +9,7 @@ local last_focused_pane_id = nil
 local default_opts = {
   indicator = '●',
   color_done = '#A6E22E',
-  color_running = '#E6DB74',
+  color_running = '#66D9EF',
   position = 'left',
 }
 

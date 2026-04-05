@@ -114,7 +114,15 @@ You need at least one signal source to tell the plugin when agents start and sto
 
 #### Claude Code hooks (recommended)
 
-Add the following to your `~/.claude/settings.json`:
+First, copy the hook script to `~/.claude/hooks/`:
+
+```bash
+mkdir -p ~/.claude/hooks
+cp shell/ai-ring-hook.sh ~/.claude/hooks/
+chmod +x ~/.claude/hooks/ai-ring-hook.sh
+```
+
+Then add the following to your `~/.claude/settings.json`:
 
 ```json
 {
@@ -125,7 +133,7 @@ Add the following to your `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh running"
+            "command": "~/.claude/hooks/ai-ring-hook.sh running"
           }
         ]
       }
@@ -136,7 +144,7 @@ Add the following to your `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh running"
+            "command": "~/.claude/hooks/ai-ring-hook.sh running"
           }
         ]
       }
@@ -147,7 +155,7 @@ Add the following to your `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh done"
+            "command": "~/.claude/hooks/ai-ring-hook.sh done"
           }
         ]
       }
@@ -158,7 +166,7 @@ Add the following to your `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh done"
+            "command": "~/.claude/hooks/ai-ring-hook.sh done"
           }
         ]
       }
@@ -166,8 +174,6 @@ Add the following to your `~/.claude/settings.json`:
   }
 }
 ```
-
-Replace `/path/to/ai-ring.wezterm` with the actual path (e.g. `~/Library/Application Support/wezterm/plugins/*/ai-ring.wezterm` on macOS if installed via `wezterm.plugin.require`).
 
 **What each hook does:**
 
@@ -183,7 +189,7 @@ Replace `/path/to/ai-ring.wezterm` with the actual path (e.g. `~/Library/Applica
 For agents that don't support hooks, use the zsh shell hook. Add to your `.zshrc`:
 
 ```zsh
-source /path/to/ai-ring.wezterm/shell/ai-ring.zsh
+source ~/.config/ai-ring.wezterm/shell/ai-ring.zsh
 ```
 
 This uses `preexec`/`precmd` to detect when a watched command starts and stops.
@@ -192,7 +198,7 @@ By default, `claude` and `opencode` are watched. Customize before sourcing:
 
 ```zsh
 AI_RING_AGENTS=(claude opencode aider gemini)
-source /path/to/ai-ring.wezterm/shell/ai-ring.zsh
+source ~/.config/ai-ring.wezterm/shell/ai-ring.zsh
 ```
 
 #### Using both together

@@ -1,79 +1,264 @@
 # ai-ring.wezterm
 
-A WezTerm plugin that shows a dot indicator (●) on tabs when AI agents (Claude Code, OpenCode, etc.) finish their work. Like tmux's activity monitoring, but for AI coding agents.
+A WezTerm plugin that shows a dot indicator (●) on tabs when AI coding agents (Claude Code, OpenCode, etc.) are running or need your attention.
 
-- No polling, no text scanning -- uses WezTerm user variables via OSC 1337
-- Per-pane tracking -- works with split panes
-- Dot clears when you focus the pane
+Like tmux's activity monitoring, but designed for AI agent workflows -- you can work in other tabs and instantly see which agents are busy or finished.
+
+## Features
+
+- **Running indicator** -- blue ● while the agent is processing
+- **Done indicator** -- green ● when the agent finishes or needs input
+- **Per-pane tracking** -- works with split panes; each pane tracked independently
+- **Auto-dismiss** -- dot clears when you focus the pane
+- **No text scanning** -- uses WezTerm user variables (OSC 1337), not terminal output parsing
+- **Works with mux** -- compatible with `wezterm connect` / `unix_domains`
 
 ## How it works
 
 ```
-Shell (preexec/precmd)  --OSC 1337-->  WezTerm Plugin (Lua)
-  AI_RING=running                       user-var-changed -> state update
-  AI_RING=done                          format-tab-title -> ● on tab
-                                        update-status -> clear on focus
+Claude Code hooks / Shell hooks  -->  WezTerm Plugin (Lua)
+  AI_RING=running (start/prompt)        user-var-changed -> pane_states
+  AI_RING=done    (stop/notification)   update-status    -> scan + dismiss
+                                        tabline component -> ● on tab
 ```
 
-1. You run `claude` or `opencode` in a terminal pane
-2. The shell hook sets a WezTerm user variable to `running` (yellow ●)
-3. When the agent exits, the variable is set to `done` (green ●)
-4. When you focus that pane, the dot clears
-5. With split panes, each pane is tracked independently -- the tab dot remains until all done panes are acknowledged
+### Status flow
+
+| Event | Status | Tab indicator |
+|---|---|---|
+| Agent starts / user sends prompt | `running` | Blue ● |
+| Agent finishes / needs input | `done` | Green ● |
+| User focuses the pane | dismissed | Hidden |
 
 ## Installation
 
-### 1. Add the plugin to your `wezterm.lua`
+### Step 1: Set up the WezTerm plugin
+
+**Option A: Standalone (no tabline plugin)**
 
 ```lua
 local wezterm = require 'wezterm'
 local ai_ring = wezterm.plugin.require 'https://github.com/AniP-gt/ai-ring.wezterm'
 
 local config = wezterm.config_builder()
-
 ai_ring.apply_to_config(config)
-
 return config
 ```
 
-### 2. Source the shell hook in your `.zshrc`
+> Note: This registers a `format-tab-title` handler. Only one handler can be active -- if you use another tab plugin, see Option B.
+
+**Option B: With [tabline.wez](https://github.com/michaelbrusegard/tabline.wez) (recommended)**
+
+Create a wrapper module (e.g. `~/.config/wezterm/plugins/ai-ring.lua`):
+
+```lua
+local wezterm = require("wezterm")
+
+local M = {}
+local ai_ring_module
+
+function M.setup(config)
+  if not ai_ring_module then
+    ai_ring_module = wezterm.plugin.require(
+      "https://github.com/AniP-gt/ai-ring.wezterm"
+    )
+  end
+
+  ai_ring_module.apply_to_config(config, {
+    indicator = "●",
+    color_done = "#A6E22E",
+    color_running = "#66D9EF",
+  })
+end
+
+function M.agent_status_component(tab)
+  if not ai_ring_module then return "" end
+
+  local status = ai_ring_module.get_tab_status(tab.tab_id)
+  if not status then return "" end
+
+  return wezterm.format({
+    { Foreground = { Color = status.color } },
+    { Text = status.icon },
+  })
+end
+
+return M
+```
+
+Then use `agent_status_component` in your tabline config:
+
+```lua
+local ai_ring = require("plugins.ai-ring")
+
+tabline.setup({
+  sections = {
+    tab_active = {
+      ai_ring.agent_status_component,
+      "index",
+      { "process", padding = { left = 0, right = 1 } },
+    },
+    tab_inactive = {
+      ai_ring.agent_status_component,
+      "index",
+      { "cwd", padding = { left = 0, right = 1 } },
+    },
+    -- ...
+  },
+})
+```
+
+### Step 2: Set up signal sources
+
+You need at least one signal source to tell the plugin when agents start and stop. You can use Claude Code hooks, the shell hook, or both.
+
+#### Claude Code hooks (recommended)
+
+Add the following to your `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh running"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh running"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh done"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/ai-ring.wezterm/shell/ai-ring-hook.sh done"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Replace `/path/to/ai-ring.wezterm` with the actual path (e.g. `~/Library/Application Support/wezterm/plugins/*/ai-ring.wezterm` on macOS if installed via `wezterm.plugin.require`).
+
+**What each hook does:**
+
+| Hook | Triggers when | Signal |
+|---|---|---|
+| `SessionStart` | Claude Code session begins | `running` (blue ●) |
+| `UserPromptSubmit` | You send a message | `running` (blue ●) |
+| `Stop` | Claude finishes a response | `done` (green ●) |
+| `Notification` | Claude needs permission or input | `done` (green ●) |
+
+#### Shell hook (for OpenCode, Aider, etc.)
+
+For agents that don't support hooks, use the zsh shell hook. Add to your `.zshrc`:
 
 ```zsh
 source /path/to/ai-ring.wezterm/shell/ai-ring.zsh
 ```
 
-Or if installed via `wezterm.plugin.require`, the plugin is cached at:
+This uses `preexec`/`precmd` to detect when a watched command starts and stops.
 
-```zsh
-# macOS
-source "$HOME/Library/Application Support/wezterm/plugins/*/ai-ring.wezterm/shell/ai-ring.zsh"
-```
-
-## Configuration
-
-```lua
-ai_ring.apply_to_config(config, {
-  indicator = '●',         -- dot character (default: '●')
-  color_done = 'green',    -- color when agent finished (default: 'green')
-  color_running = 'yellow', -- color while agent is running (default: 'yellow')
-  position = 'left',       -- 'left' or 'right' of tab title (default: 'left')
-})
-```
-
-### Custom agent list
-
-By default, `claude` and `opencode` are watched. Override before sourcing:
+By default, `claude` and `opencode` are watched. Customize before sourcing:
 
 ```zsh
 AI_RING_AGENTS=(claude opencode aider gemini)
 source /path/to/ai-ring.wezterm/shell/ai-ring.zsh
 ```
 
+#### Using both together
+
+Claude Code hooks and the shell hook can coexist. The hooks provide more granular status (running vs waiting), while the shell hook covers agents without hook support.
+
+## Configuration
+
+```lua
+ai_ring.apply_to_config(config, {
+  indicator = '●',           -- dot character (default: '●')
+  color_done = '#A6E22E',    -- color when agent finished (default: '#A6E22E')
+  color_running = '#66D9EF', -- color while agent is running (default: '#66D9EF')
+  position = 'left',         -- 'left' or 'right' of tab title (default: 'left')
+})
+```
+
+## API
+
+### `apply_to_config(config, opts)`
+
+Initializes the plugin with the given options. Call this in your `wezterm.lua`.
+
+### `get_tab_status(tab_id)`
+
+Returns the status for a tab, for use in custom tab components (e.g. tabline.wez).
+
+Returns `nil` if no active indicators, or a table:
+
+```lua
+{
+  icon = '●',           -- the indicator character
+  color = '#A6E22E',    -- the color to use
+  has_done = true,      -- at least one pane is "done"
+  has_running = false,  -- at least one pane is "running"
+}
+```
+
+`done` takes priority over `running` for the color.
+
+## How dismissal works
+
+1. An agent finishes -- green ● appears on the tab
+2. You switch to that tab and the pane gets focus
+3. The ● disappears for that pane
+4. If the tab has multiple split panes with agents, each pane must be focused individually to dismiss its indicator
+
 ## Limitations
 
-- **`format-tab-title` is exclusive**: WezTerm only runs the first registered `format-tab-title` handler. If another plugin or your config also uses this event, they will conflict. In that case, you can call `ai-ring`'s logic manually from your own handler.
-- **Local panes only**: Process detection via user variables requires the shell hook to be sourced in each pane's shell. SSH or mux remote sessions need the hook sourced on the remote side.
-- **zsh only**: The shell hook uses `add-zsh-hook`. Bash/fish support can be added in the future.
+- **zsh only** for the shell hook. Bash/fish support can be added.
+- **Local panes only** for user variables. SSH or mux remote sessions need the hook on the remote side.
+- **`format-tab-title` conflict** (standalone mode only). If another plugin uses `format-tab-title`, use the tabline.wez integration instead.
+
+## Comparison with wezterm-agent-deck
+
+[wezterm-agent-deck](https://github.com/Eric162/wezterm-agent-deck) is a similar plugin that detects agent status by scanning terminal output. ai-ring.wezterm takes a different approach:
+
+| | ai-ring.wezterm | wezterm-agent-deck |
+|---|---|---|
+| Detection method | Explicit signals (hooks / OSC) | Terminal text scanning |
+| False positives | None | Possible (pattern matching) |
+| CPU overhead | Minimal | Scans all panes every interval |
+| Setup | Requires hooks config | Zero config |
+| Agent support | Any (with hooks/shell hook) | Built-in patterns for known agents |
+
+Choose ai-ring.wezterm if you want reliable, low-overhead notifications. Choose wezterm-agent-deck if you prefer zero-config setup.
 
 ## License
 

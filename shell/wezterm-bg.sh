@@ -9,7 +9,8 @@
 # Output is written to /dev/tty because hooks capture stdout.
 #
 # Colors can be customized in wezterm-bg.conf in the same directory:
-#   COLOR_DONE=<hex>   (default: #0d2b0d)
+#   COLOR_DONE=<hex>     (default: #0d2b0d)
+#   COLOR_WAITING=<hex>  (default: empty — no change)
 #
 # Install:
 #   cp shell/wezterm-bg.sh ~/.claude/hooks/
@@ -20,14 +21,16 @@ ACTION="${1:-}"
 
 # Load color config (defaults)
 COLOR_DONE="#0d2b0d"
+COLOR_WAITING=""
 CONF="$(dirname "$0")/wezterm-bg.conf"
 # shellcheck source=/dev/null
 [ -f "$CONF" ] && . "$CONF"
 
 case "$ACTION" in
-  done)  OSC=$(printf '\033]11;%s\033\\' "$COLOR_DONE") ;;
-  reset) OSC=$(printf '\033]111\033\\') ;;
-  *)     exit 0 ;;
+  done)    OSC=$(printf '\033]11;%s\033\\' "$COLOR_DONE") ;;
+  waiting) [ -n "$COLOR_WAITING" ] && OSC=$(printf '\033]11;%s\033\\' "$COLOR_WAITING") || exit 0 ;;
+  reset)   OSC=$(printf '\033]111\033\\') ;;
+  *)       exit 0 ;;
 esac
 
 if [ -w /dev/tty ]; then

@@ -1,4 +1,4 @@
-# ai-ring.wezterm
+# cc-glow.wezterm
 
 A WezTerm plugin that shows a dot indicator (●) on tabs when AI coding agents (Claude Code, OpenCode, etc.) are running or need your attention.
 
@@ -37,7 +37,7 @@ Claude Code hooks / Shell hooks  -->  WezTerm Plugin (Lua)
 You can ask Claude Code to set this up for you. Clone the repo first, then paste this prompt:
 
 ```
-Please set up ai-ring.wezterm for me by following the AI Setup Instructions in the README.
+Please set up cc-glow.wezterm for me by following the AI Setup Instructions in the README.
 The repo is cloned at: <path to cloned repo>
 ```
 
@@ -45,11 +45,11 @@ Claude will ask you a few questions and configure everything automatically.
 
 ---
 
-<!-- AI SETUP INSTRUCTIONS — Claude reads this section when asked to set up ai-ring.wezterm -->
+<!-- AI SETUP INSTRUCTIONS — Claude reads this section when asked to set up cc-glow.wezterm -->
 <details>
 <summary>AI Setup Instructions (for Claude)</summary>
 
-You are setting up ai-ring.wezterm for the user. Follow these steps exactly.
+You are setting up cc-glow.wezterm for the user. Follow these steps exactly.
 
 ### Step 1 — Ask the user which features they want
 
@@ -148,7 +148,7 @@ After making changes:
 
 ```lua
 local wezterm = require 'wezterm'
-local ai_ring = wezterm.plugin.require 'https://github.com/AniP-gt/ai-ring.wezterm'
+local ai_ring = wezterm.plugin.require 'https://github.com/AniP-gt/cc-glow.wezterm'
 
 local config = wezterm.config_builder()
 ai_ring.apply_to_config(config)
@@ -170,7 +170,7 @@ local ai_ring_module
 function M.setup(config)
   if not ai_ring_module then
     ai_ring_module = wezterm.plugin.require(
-      "https://github.com/AniP-gt/ai-ring.wezterm"
+      "https://github.com/AniP-gt/cc-glow.wezterm"
     )
   end
 
@@ -390,7 +390,7 @@ OVERLAY_ROW_OFFSET=3    # lines from the edge (default: 3)
 For agents that don't support hooks, use the zsh shell hook. Add to your `.zshrc`:
 
 ```zsh
-source ~/.config/ai-ring.wezterm/shell/ai-ring.zsh
+source ~/.config/cc-glow.wezterm/shell/ai-ring.zsh
 ```
 
 This uses `preexec`/`precmd` to detect when a watched command starts and stops.
@@ -399,7 +399,7 @@ By default, `claude` and `opencode` are watched. Customize before sourcing:
 
 ```zsh
 AI_RING_AGENTS=(claude opencode aider gemini)
-source ~/.config/ai-ring.wezterm/shell/ai-ring.zsh
+source ~/.config/cc-glow.wezterm/shell/ai-ring.zsh
 ```
 
 #### Using both together
@@ -461,9 +461,9 @@ Scans all mux windows across all workspaces, so you can see the status of agents
 
 ## Comparison with wezterm-agent-deck
 
-[wezterm-agent-deck](https://github.com/Eric162/wezterm-agent-deck) is a similar plugin that detects agent status by scanning terminal output. ai-ring.wezterm takes a different approach:
+[wezterm-agent-deck](https://github.com/Eric162/wezterm-agent-deck) is a similar plugin that detects agent status by scanning terminal output. cc-glow.wezterm takes a different approach:
 
-| | ai-ring.wezterm | wezterm-agent-deck |
+| | cc-glow.wezterm | wezterm-agent-deck |
 |---|---|---|
 | Detection method | Explicit signals (hooks / OSC) | Terminal text scanning |
 | False positives | None | Possible (pattern matching) |
@@ -471,7 +471,7 @@ Scans all mux windows across all workspaces, so you can see the status of agents
 | Setup | Requires hooks config | Zero config |
 | Agent support | Any (with hooks/shell hook) | Built-in patterns for known agents |
 
-Choose ai-ring.wezterm if you want reliable, low-overhead notifications. Choose wezterm-agent-deck if you prefer zero-config setup.
+Choose cc-glow.wezterm if you want reliable, low-overhead notifications. Choose wezterm-agent-deck if you prefer zero-config setup.
 
 ## License
 

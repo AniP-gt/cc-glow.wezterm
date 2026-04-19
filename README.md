@@ -32,6 +32,114 @@ Claude Code hooks / Shell hooks  -->  WezTerm Plugin (Lua)
 | Agent finishes / needs input | `done` | Green ● |
 | User focuses the pane | dismissed | Hidden |
 
+## AI-assisted setup
+
+You can ask Claude Code to set this up for you. Clone the repo first, then paste this prompt:
+
+```
+Please set up ai-ring.wezterm for me by following the AI Setup Instructions in the README.
+The repo is cloned at: <path to cloned repo>
+```
+
+Claude will ask you a few questions and configure everything automatically.
+
+---
+
+<!-- AI SETUP INSTRUCTIONS — Claude reads this section when asked to set up ai-ring.wezterm -->
+<details>
+<summary>AI Setup Instructions (for Claude)</summary>
+
+You are setting up ai-ring.wezterm for the user. Follow these steps exactly.
+
+### Step 1 — Ask the user which features they want
+
+Ask these questions one at a time and wait for answers:
+
+1. **Tab indicator (required)**: "Do you use tabline.wez, or standalone WezTerm with no tab plugin?"
+   - tabline.wez → use Option B setup
+   - standalone → use Option A setup
+
+2. **Signal source**: "Do you use Claude Code, another agent (OpenCode, Aider, etc.), or both?"
+   - Claude Code only → set up Claude Code hooks
+   - Other agents → set up shell hook
+   - Both → set up both
+
+3. **Background color** (only ask if Claude Code): "Do you want the pane background to turn green when Claude finishes? (yes / no)"
+
+4. **Pane overlay** (only ask if Claude Code): "Do you want a 🚀 IN PROGRESS badge while Claude is working, and ❓ WAITING when it needs input? (yes / no)"
+   - If yes, ask: "Where should the badge appear? (top-left / top-right / bottom-left / bottom-right, default: bottom-left)"
+   - If yes, ask: "How many lines from the edge? (default: 3)"
+
+### Step 2 — Check existing state
+
+Before making any changes:
+- Read `~/.claude/settings.json` if it exists — never overwrite existing hooks, only append
+- Check `~/.claude/hooks/` for existing scripts
+- Check `~/.config/wezterm/wezterm.lua` or similar for existing WezTerm config
+
+### Step 3 — Install based on answers
+
+**WezTerm plugin (always required):**
+- Option A (standalone): add `ai_ring.apply_to_config(config)` to wezterm.lua
+- Option B (tabline.wez): create `~/.config/wezterm/plugins/ai-ring.lua` using the wrapper shown in the Installation section, then wire into tabline config
+
+**Claude Code hooks (if chosen):**
+```bash
+mkdir -p ~/.claude/hooks
+cp <repo>/shell/ai-ring-hook.sh ~/.claude/hooks/
+chmod +x ~/.claude/hooks/ai-ring-hook.sh
+```
+Add to `~/.claude/settings.json` (merge with existing hooks, do not replace):
+- Always add: `SessionStart`, `UserPromptSubmit` → `ai-ring-hook.sh running`
+- Always add: `Stop`, `Notification` → `ai-ring-hook.sh done`
+
+**Background color (if chosen):**
+```bash
+cp <repo>/shell/wezterm-bg.sh ~/.claude/hooks/
+cp <repo>/shell/wezterm-bg.conf ~/.claude/hooks/
+chmod +x ~/.claude/hooks/wezterm-bg.sh
+```
+Add to `~/.claude/settings.json`:
+- `PreToolUse`, `UserPromptSubmit` → `wezterm-bg.sh reset`
+- `Stop` → `wezterm-bg.sh done`
+- `SessionEnd` → `wezterm-bg.sh reset`
+
+**Pane overlay (if chosen):**
+```bash
+cp <repo>/shell/wezterm-overlay.sh ~/.claude/hooks/
+cp <repo>/shell/wezterm-overlay.conf ~/.claude/hooks/
+chmod +x ~/.claude/hooks/wezterm-overlay.sh
+```
+Edit `~/.claude/hooks/wezterm-overlay.conf` based on user's position preference.
+Add to `~/.claude/settings.json`:
+- `PreToolUse` → `wezterm-overlay.sh in_progress`
+- `Notification` → `wezterm-overlay.sh waiting`
+
+**Shell hook (if chosen):**
+Add to `~/.zshrc`:
+```zsh
+AI_RING_AGENTS=(claude opencode aider gemini)  # adjust to user's agents
+source <repo>/shell/ai-ring.zsh
+```
+
+### Step 4 — Verify
+
+After making changes:
+1. Confirm `~/.claude/settings.json` is valid JSON: `python3 -m json.tool ~/.claude/settings.json`
+2. Confirm hook scripts are executable: `ls -la ~/.claude/hooks/`
+3. Tell the user what was installed and how to test it (e.g. start Claude Code and check the tab indicator)
+
+### Rules
+
+- Never remove existing entries from `~/.claude/settings.json` hooks arrays — only append
+- Never overwrite existing hook scripts without asking
+- If the user's wezterm.lua already loads ai-ring, don't add it again
+- Keep changes minimal — only install what the user asked for
+
+</details>
+
+---
+
 ## Installation
 
 ### Step 1: Set up the WezTerm plugin

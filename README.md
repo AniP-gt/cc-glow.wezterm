@@ -325,6 +325,21 @@ Then add the following to your `~/.claude/settings.json`:
 | `Stop` | Claude finishes a response | `done` (green ●) |
 | `Notification` | Claude needs permission or input | `done` (green ●) |
 
+#### tmux users
+
+If you run Claude Code inside tmux, enable OSC passthrough so the signals reach WezTerm:
+
+```bash
+# Add to ~/.tmux.conf
+set -g allow-passthrough on
+```
+
+Then reload tmux config:
+
+```bash
+tmux source ~/.tmux.conf
+```
+
 #### Background color + pane overlay (optional)
 
 Two scripts work together to give in-pane visual feedback:

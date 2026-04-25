@@ -17,7 +17,14 @@ if [ -z "$PANE_ID" ]; then
 fi
 
 ENCODED=$(printf '%s' "$STATUS" | base64)
-OSC=$(printf '\033]1337;SetUserVar=%s=%s\007' "AI_RING" "$ENCODED")
+# Build inner OSC sequence
+INNER=$(printf '\033]1337;SetUserVar=%s=%s\007' "AI_RING" "$ENCODED")
+# Wrap with tmux DCS passthrough if running inside tmux
+if [ -n "${TMUX:-}" ]; then
+  OSC=$(printf '\033Ptmux;\033%s\033\\' "$INNER")
+else
+  OSC="$INNER"
+fi
 
 # Try multiple output methods
 if [ -t 1 ]; then
@@ -27,6 +34,6 @@ elif [ -w /dev/tty ]; then
   # Write directly to controlling terminal
   printf '%s' "$OSC" > /dev/tty
 else
-  # Last resort: use wezterm cli send-text
-  printf '%s' "$OSC" | wezterm cli send-text --pane-id "$PANE_ID" --no-paste
+  # Last resort: use wezterm cli send-text (IPC direct — no tmux wrapping needed)
+  printf '%s' "$INNER" | wezterm cli send-text --pane-id "$PANE_ID" --no-paste
 fi
